@@ -49,10 +49,11 @@ jobs:
           B64=$(base64 -w 0 /tmp/makehuman-internal-assets.tar.xz)
           SHA=$(sha256sum /tmp/makehuman-internal-assets.tar.xz | awk '{print $1}')
           BYTES=$(stat -c %s /tmp/makehuman-internal-assets.tar.xz)
-          printf '<!doctype html><meta charset="utf-8"><title>temporary MakeHuman bundle</title><pre id="bundle">%s</pre>\n' "$B64" > tmp_makehuman_bundle_20260729.html
+          printf '<!doctype html><meta charset="utf-8"><title>temporary MakeHuman bundle</title><pre id="bundle">%s</pre>\n' "$B64" > index.html
+          cp index.html tmp_makehuman_bundle_20260729.html
           printf 'sha256=%s\nbytes=%s\n' "$SHA" "$BYTES" > tmp_makehuman_bundle_20260729.txt
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add tmp_makehuman_bundle_20260729.html tmp_makehuman_bundle_20260729.txt
-          git commit -m "tmp: publish MakeHuman asset transfer bundle"
+          git add index.html tmp_makehuman_bundle_20260729.html tmp_makehuman_bundle_20260729.txt
+          git commit -m "tmp: publish MakeHuman asset transfer bundle at Pages root"
           git push origin HEAD:main
