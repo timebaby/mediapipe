@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Build temporary HTML transfer file on main
+      - name: Build temporary transfer chunks on main
         shell: bash
         run: |
           set -euo pipefail
@@ -46,14 +46,15 @@ jobs:
           (cd "$OUT" && sha256sum hm08/* bodyshapes/* > SHA256SUMS.txt)
           printf 'makehuman2_commit=%s\nmakehuman_tag=%s\nassets_license=CC0\n' "$MH2_COMMIT" "$MH_TAG" > "$OUT/SOURCE_PINS.txt"
           tar -C "$OUT" -cJf /tmp/makehuman-internal-assets.tar.xz .
-          B64=$(base64 -w 0 /tmp/makehuman-internal-assets.tar.xz)
+          rm -rf tmp_mh_chunks
+          mkdir -p tmp_mh_chunks
+          base64 -w 0 /tmp/makehuman-internal-assets.tar.xz | fold -w 12000 | split -l 1 -d -a 3 - tmp_mh_chunks/chunk-
           SHA=$(sha256sum /tmp/makehuman-internal-assets.tar.xz | awk '{print $1}')
           BYTES=$(stat -c %s /tmp/makehuman-internal-assets.tar.xz)
-          printf '<!doctype html><meta charset="utf-8"><title>temporary MakeHuman bundle</title><pre id="bundle">%s</pre>\n' "$B64" > index.html
-          cp index.html tmp_makehuman_bundle_20260729.html
-          printf 'sha256=%s\nbytes=%s\n' "$SHA" "$BYTES" > tmp_makehuman_bundle_20260729.txt
+          CHUNKS=$(find tmp_mh_chunks -type f -name 'chunk-*' | wc -l)
+          printf 'sha256=%s\nbytes=%s\nchunks=%s\nchunk_chars=12000\n' "$SHA" "$BYTES" "$CHUNKS" > tmp_mh_chunks/MANIFEST.txt
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add index.html tmp_makehuman_bundle_20260729.html tmp_makehuman_bundle_20260729.txt
-          git commit -m "tmp: publish MakeHuman asset transfer bundle at Pages root"
+          git add -A tmp_mh_chunks
+          git commit -m "tmp: publish MakeHuman transfer chunks"
           git push origin HEAD:main
