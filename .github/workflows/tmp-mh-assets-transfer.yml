@@ -1,0 +1,58 @@
+name: tmp-mh-assets-transfer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  transfer:
+    if: github.head_ref == 'tmp-mh-assets-transfer-20260729'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Build temporary HTML transfer file on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=$(mktemp -d)
+          mkdir -p "$OUT/hm08" "$OUT/bodyshapes"
+          MH2_COMMIT=2e4cb35cb15fd53107ed4ad15b253d9b8a390738
+          MH_TAG=v1.3.0
+          curl -L --fail --retry 4 "https://raw.githubusercontent.com/makehumancommunity/makehuman2/${MH2_COMMIT}/data/rigs/hm08/default.mhskel" -o "$OUT/hm08/default.mhskel"
+          curl -L --fail --retry 4 "https://raw.githubusercontent.com/makehumancommunity/makehuman2/${MH2_COMMIT}/data/rigs/hm08/default_weights.mhw" -o "$OUT/hm08/default_weights.mhw"
+          for name in \
+            bodyshapes-elvs-fem-apple \
+            bodyshapes-elvs-fem-diamond \
+            bodyshapes-elvs-fem-full-hourglass \
+            bodyshapes-elvs-fem-neat-hourglass \
+            bodyshapes-elvs-fem-invert-triangle \
+            bodyshapes-elvs-fem-lean-column \
+            bodyshapes-elvs-fem-rectangle \
+            bodyshapes-elvs-fem-triangle \
+            bodyshapes-elvs-man-apple \
+            bodyshapes-elvs-man-rectangle \
+            bodyshapes-elvs-man-lean-column \
+            bodyshapes-elvs-man-triangle \
+            bodyshapes-elvs-man-invert-triangle \
+            bodyshapes-elvs-man-trapezoid
+          do
+            curl -L --fail --retry 4 "https://raw.githubusercontent.com/makehumancommunity/makehuman/${MH_TAG}/makehuman/data/targets/bodyshapes/${name}.target" -o "$OUT/bodyshapes/${name}.target"
+          done
+          (cd "$OUT" && sha256sum hm08/* bodyshapes/* > SHA256SUMS.txt)
+          printf 'makehuman2_commit=%s\nmakehuman_tag=%s\nassets_license=CC0\n' "$MH2_COMMIT" "$MH_TAG" > "$OUT/SOURCE_PINS.txt"
+          tar -C "$OUT" -cJf /tmp/makehuman-internal-assets.tar.xz .
+          B64=$(base64 -w 0 /tmp/makehuman-internal-assets.tar.xz)
+          SHA=$(sha256sum /tmp/makehuman-internal-assets.tar.xz | awk '{print $1}')
+          BYTES=$(stat -c %s /tmp/makehuman-internal-assets.tar.xz)
+          printf '<!doctype html><meta charset="utf-8"><title>temporary MakeHuman bundle</title><pre id="bundle">%s</pre>\n' "$B64" > tmp_makehuman_bundle_20260729.html
+          printf 'sha256=%s\nbytes=%s\n' "$SHA" "$BYTES" > tmp_makehuman_bundle_20260729.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tmp_makehuman_bundle_20260729.html tmp_makehuman_bundle_20260729.txt
+          git commit -m "tmp: publish MakeHuman asset transfer bundle"
+          git push origin HEAD:main
